@@ -80,6 +80,12 @@ impl std::str::FromStr for YearMonth {
     }
 }
 
+impl std::fmt::Display for YearMonth {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}-{:02}", self.year, self.month)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -125,5 +131,12 @@ mod tests {
     fn year_month_from_str_err(#[case] s: &str, #[case] expected: YearMonthError) {
         use std::str::FromStr as _;
         assert_eq!(YearMonth::from_str(s).err().unwrap(), expected);
+    }
+
+    #[rstest::rstest]
+    #[case(YearMonth::new(1, 1).unwrap(), "1-01")]
+    #[case(YearMonth::new(2025, 12).unwrap(), "2025-12")]
+    fn year_month_to_string_ok(#[case] ym: YearMonth, #[case] expected: &str) {
+        assert_eq!(ym.to_string(), expected);
     }
 }
