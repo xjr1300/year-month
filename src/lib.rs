@@ -6,6 +6,8 @@
 
 use std::cmp::Ordering;
 
+use time::Month;
+
 /// 年月
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct YearMonth {
@@ -91,6 +93,16 @@ impl YearMonth {
             true => Err(YearMonthError::OutOfYearRange(year)),
             false => Ok(Self { year, month }),
         }
+    }
+
+    /// 年月の日付の数を返します。
+    ///
+    /// # 戻り値
+    ///
+    /// 日付の数
+    pub fn number_of_days(&self) -> u8 {
+        let month = Month::try_from(self.month).unwrap();
+        month.length(self.year)
     }
 }
 
@@ -240,5 +252,23 @@ mod tests {
     fn year_month_prev_err() {
         let ym = YearMonth::new(1, 1).unwrap();
         assert_eq!(ym.prev().err().unwrap(), YearMonthError::OutOfYearRange(0));
+    }
+
+    #[rstest::rstest]
+    #[case(YearMonth::new(2025, 1).unwrap(), 31)]
+    #[case(YearMonth::new(2025, 2).unwrap(), 28)]
+    #[case(YearMonth::new(2025, 3).unwrap(), 31)]
+    #[case(YearMonth::new(2025, 4).unwrap(), 30)]
+    #[case(YearMonth::new(2025, 5).unwrap(), 31)]
+    #[case(YearMonth::new(2025, 6).unwrap(), 30)]
+    #[case(YearMonth::new(2025, 7).unwrap(), 31)]
+    #[case(YearMonth::new(2025, 8).unwrap(), 31)]
+    #[case(YearMonth::new(2025, 9).unwrap(), 30)]
+    #[case(YearMonth::new(2025, 10).unwrap(), 31)]
+    #[case(YearMonth::new(2025, 11).unwrap(), 30)]
+    #[case(YearMonth::new(2025, 12).unwrap(), 31)]
+    #[case(YearMonth::new(2024, 2).unwrap(), 29)]
+    fn year_month_number_of_days(#[case] ym: YearMonth, #[case] expected: u8) {
+        assert_eq!(ym.number_of_days(), expected);
     }
 }
