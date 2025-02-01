@@ -54,6 +54,21 @@ impl YearMonth {
         }
         Ok(Self { year, month })
     }
+
+    /// 次の年月を返します。
+    ///
+    /// # 戻り値
+    ///
+    /// 次の年月
+    pub fn next(&self) -> Self {
+        let mut year = self.year;
+        let mut month = self.month + 1;
+        if month == 13 {
+            month = 1;
+            year += 1;
+        }
+        Self { year, month }
+    }
 }
 
 impl std::str::FromStr for YearMonth {
@@ -172,5 +187,12 @@ mod tests {
             expected,
             "lhs:{lhs}, rhs:{rhs}, expected:{expected:?}"
         );
+    }
+
+    #[rstest::rstest]
+    #[case(YearMonth::new(1, 12).unwrap(), YearMonth::new(2, 1).unwrap())]
+    #[case(YearMonth::new(2025, 2).unwrap(), YearMonth::new(2025, 3).unwrap())]
+    fn year_month_next_ok(#[case] ym: YearMonth, #[case] expected: YearMonth) {
+        assert_eq!(ym.next(), expected);
     }
 }
