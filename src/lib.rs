@@ -113,6 +113,16 @@ impl YearMonth {
     pub fn first(&self) -> Date {
         Date::from_calendar_date(self.year, Month::try_from(self.month).unwrap(), 1).unwrap()
     }
+
+    /// 年月の最後の日付を返します。
+    ///
+    /// # 戻り値
+    ///
+    /// 年月の最後の日付
+    pub fn last(&self) -> Date {
+        let days = self.number_of_days();
+        Date::from_calendar_date(self.year, Month::try_from(self.month).unwrap(), days).unwrap()
+    }
 }
 
 impl std::str::FromStr for YearMonth {
@@ -165,6 +175,10 @@ impl PartialOrd for YearMonth {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr as _;
+
+    use time::macros::date;
+
     use super::*;
 
     #[rstest::rstest]
@@ -195,7 +209,6 @@ mod tests {
     #[case("1-01", YearMonth::new(1,1).unwrap())]
     #[case("2025-02", YearMonth::new(2025,2).unwrap())]
     fn year_month_from_str_ok(#[case] s: &str, #[case] expected: YearMonth) {
-        use std::str::FromStr as _;
         assert_eq!(YearMonth::from_str(s).unwrap(), expected);
     }
 
@@ -283,8 +296,16 @@ mod tests {
 
     #[test]
     fn year_month_first_ok() {
-        use time::macros::date;
         let ym = YearMonth::new(2025, 2).unwrap();
         assert_eq!(ym.first(), date!(2025 - 02 - 1));
+    }
+
+    #[rstest::rstest]
+    #[case(YearMonth::new(2025, 1).unwrap(), date!(2025 - 01 - 31))]
+    #[case(YearMonth::new(2025, 2).unwrap(), date!(2025 - 02 - 28))]
+    #[case(YearMonth::new(2025, 11).unwrap(), date!(2025 - 11 - 30))]
+    #[case(YearMonth::new(2024, 2).unwrap(), date!(2024 - 02 - 29))]
+    fn year_month_last_ok(#[case] ym: YearMonth, #[case] expected: Date) {
+        assert_eq!(ym.last(), expected);
     }
 }
