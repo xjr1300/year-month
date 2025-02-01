@@ -6,7 +6,7 @@
 
 use std::cmp::Ordering;
 
-use time::Month;
+use time::{Date, Month};
 
 /// 年月
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -103,6 +103,15 @@ impl YearMonth {
     pub fn number_of_days(&self) -> u8 {
         let month = Month::try_from(self.month).unwrap();
         month.length(self.year)
+    }
+
+    /// 年月の最初の日付を返します。
+    ///
+    /// # 戻り値
+    ///
+    /// 年月の最初の日付
+    pub fn first(&self) -> Date {
+        Date::from_calendar_date(self.year, Month::try_from(self.month).unwrap(), 1).unwrap()
     }
 }
 
@@ -270,5 +279,12 @@ mod tests {
     #[case(YearMonth::new(2024, 2).unwrap(), 29)]
     fn year_month_number_of_days(#[case] ym: YearMonth, #[case] expected: u8) {
         assert_eq!(ym.number_of_days(), expected);
+    }
+
+    #[test]
+    fn year_month_first_ok() {
+        use time::macros::date;
+        let ym = YearMonth::new(2025, 2).unwrap();
+        assert_eq!(ym.first(), date!(2025 - 02 - 1));
     }
 }
