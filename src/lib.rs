@@ -123,6 +123,15 @@ impl YearMonth {
         let days = self.number_of_days();
         Date::from_calendar_date(self.year, Month::try_from(self.month).unwrap(), days).unwrap()
     }
+
+    /// 年月の日付を走査するイテレータを返します。
+    ///
+    /// # 戻り値
+    ///
+    /// 年月の日付を走査するイテレータ
+    pub fn dates(&self) -> DateIterator {
+        DateIterator::new(self.first(), self.last())
+    }
 }
 
 impl std::str::FromStr for YearMonth {
@@ -170,6 +179,37 @@ impl Ord for YearMonth {
 impl PartialOrd for YearMonth {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
+    }
+}
+
+/// 日付イテレーター
+pub struct DateIterator {
+    cur: Option<Date>,
+    end: Date,
+}
+
+impl DateIterator {
+    fn new(begin: Date, end: Date) -> Self {
+        Self {
+            cur: Some(begin),
+            end,
+        }
+    }
+}
+
+impl Iterator for DateIterator {
+    type Item = Date;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.cur?;
+        match self.cur.unwrap() <= self.end {
+            true => {
+                let result = self.cur;
+                self.cur = self.cur.unwrap().next_day();
+                result
+            }
+            false => None,
+        }
     }
 }
 
@@ -307,5 +347,45 @@ mod tests {
     #[case(YearMonth::new(2024, 2).unwrap(), date!(2024 - 02 - 29))]
     fn year_month_last_ok(#[case] ym: YearMonth, #[case] expected: Date) {
         assert_eq!(ym.last(), expected);
+    }
+
+    #[test]
+    fn year_month_dates_ok() {
+        let ym = YearMonth::new(2025, 2).unwrap();
+        let expected_dates = [
+            date!(2025 - 02 - 01),
+            date!(2025 - 02 - 02),
+            date!(2025 - 02 - 03),
+            date!(2025 - 02 - 04),
+            date!(2025 - 02 - 05),
+            date!(2025 - 02 - 06),
+            date!(2025 - 02 - 07),
+            date!(2025 - 02 - 08),
+            date!(2025 - 02 - 09),
+            date!(2025 - 02 - 10),
+            date!(2025 - 02 - 11),
+            date!(2025 - 02 - 12),
+            date!(2025 - 02 - 13),
+            date!(2025 - 02 - 14),
+            date!(2025 - 02 - 15),
+            date!(2025 - 02 - 16),
+            date!(2025 - 02 - 17),
+            date!(2025 - 02 - 18),
+            date!(2025 - 02 - 19),
+            date!(2025 - 02 - 20),
+            date!(2025 - 02 - 21),
+            date!(2025 - 02 - 22),
+            date!(2025 - 02 - 23),
+            date!(2025 - 02 - 24),
+            date!(2025 - 02 - 25),
+            date!(2025 - 02 - 26),
+            date!(2025 - 02 - 27),
+            date!(2025 - 02 - 28),
+        ];
+        let dates = ym.dates().collect::<Vec<Date>>();
+        assert_eq!(dates.len(), expected_dates.len());
+        for (date, expected) in dates.iter().zip(expected_dates) {
+            assert_eq!(*date, expected);
+        }
     }
 }
