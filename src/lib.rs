@@ -2,7 +2,7 @@
 //!
 //! このクレートは[time](https://crates.io/crates/time)に依存しています。
 //!
-//! 年は1年から9998年まで対応しています。
+//! 年は1年から9999年まで対応しています。
 
 use std::cmp::Ordering;
 
@@ -28,6 +28,8 @@ pub enum YearMonthError {
     InvalidYearFormat(String),
     #[error("The string format of month is invalid: {0}")]
     InvalidMonthFormat(String),
+    #[error("The year is out of range: {0}")]
+    OutOfYearRange(i32),
 }
 
 /// 年月操作結果
@@ -36,7 +38,7 @@ pub type YearMonthResult<T> = Result<T, YearMonthError>;
 /// 年の最小値
 pub const MIN_YEAR: i32 = 1;
 /// 年の最大値
-pub const MAX_YEAR: i32 = 9998;
+pub const MAX_YEAR: i32 = 9999;
 
 impl YearMonth {
     /// コンストラクタ
@@ -60,14 +62,35 @@ impl YearMonth {
     /// # 戻り値
     ///
     /// 次の年月
-    pub fn next(&self) -> Self {
+    pub fn next(&self) -> YearMonthResult<Self> {
         let mut year = self.year;
         let mut month = self.month + 1;
         if month == 13 {
             month = 1;
             year += 1;
         }
-        Self { year, month }
+        match MAX_YEAR < year {
+            true => Err(YearMonthError::OutOfYearRange(year)),
+            false => Ok(Self { year, month }),
+        }
+    }
+
+    /// 前の年月を返します。
+    ///
+    /// # 戻り値
+    ///
+    /// 前の年月
+    pub fn prev(&self) -> YearMonthResult<Self> {
+        let mut year = self.year;
+        let mut month = self.month - 1;
+        if month == 0 {
+            month = 12;
+            year -= 1;
+        }
+        match year < MIN_YEAR {
+            true => Err(YearMonthError::OutOfYearRange(year)),
+            false => Ok(Self { year, month }),
+        }
     }
 }
 
@@ -137,7 +160,7 @@ mod tests {
 
     #[rstest::rstest]
     #[case(0, 12, YearMonthError::InvalidYear(0))]
-    #[case(9999, 1, YearMonthError::InvalidYear(9999))]
+    #[case(10000, 1, YearMonthError::InvalidYear(10000))]
     #[case(2025, 0, YearMonthError::InvalidMonth(0))]
     #[case(2025, 13, YearMonthError::InvalidMonth(13))]
     fn year_month_new_err(#[case] year: i32, #[case] month: u8, #[case] expected: YearMonthError) {
@@ -192,7 +215,30 @@ mod tests {
     #[rstest::rstest]
     #[case(YearMonth::new(1, 12).unwrap(), YearMonth::new(2, 1).unwrap())]
     #[case(YearMonth::new(2025, 2).unwrap(), YearMonth::new(2025, 3).unwrap())]
+    #[case(YearMonth::new(9999, 11).unwrap(), YearMonth::new(9999, 12).unwrap())]
     fn year_month_next_ok(#[case] ym: YearMonth, #[case] expected: YearMonth) {
-        assert_eq!(ym.next(), expected);
+        assert_eq!(ym.next().unwrap(), expected);
+    }
+
+    #[test]
+    fn year_month_next_err() {
+        let ym = YearMonth::new(9999, 12).unwrap();
+        assert_eq!(
+            ym.next().err().unwrap(),
+            YearMonthError::OutOfYearRange(10000)
+        );
+    }
+
+    #[rstest::rstest]
+    #[case(YearMonth::new(1, 12).unwrap(), YearMonth::new(1, 11).unwrap())]
+    #[case(YearMonth::new(2025, 1).unwrap(), YearMonth::new(2024, 12).unwrap())]
+    fn year_month_prev_ok(#[case] ym: YearMonth, #[case] expected: YearMonth) {
+        assert_eq!(ym.prev().unwrap(), expected);
+    }
+
+    #[test]
+    fn year_month_prev_err() {
+        let ym = YearMonth::new(1, 1).unwrap();
+        assert_eq!(ym.prev().err().unwrap(), YearMonthError::OutOfYearRange(0));
     }
 }
