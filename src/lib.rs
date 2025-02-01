@@ -4,6 +4,8 @@
 //!
 //! 年は1年から9998年まで対応しています。
 
+use std::cmp::Ordering;
+
 /// 年月
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct YearMonth {
@@ -86,6 +88,22 @@ impl std::fmt::Display for YearMonth {
     }
 }
 
+impl Ord for YearMonth {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let result = self.year.cmp(&other.year);
+        if result != Ordering::Equal {
+            return result;
+        }
+        self.month.cmp(&other.month)
+    }
+}
+
+impl PartialOrd for YearMonth {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -138,5 +156,21 @@ mod tests {
     #[case(YearMonth::new(2025, 12).unwrap(), "2025-12")]
     fn year_month_to_string_ok(#[case] ym: YearMonth, #[case] expected: &str) {
         assert_eq!(ym.to_string(), expected);
+    }
+
+    #[rstest::rstest]
+    #[case(YearMonth::new(2025, 1).unwrap(), YearMonth::new(2024, 12).unwrap(), Ordering::Greater)]
+    #[case(YearMonth::new(2024, 12).unwrap(), YearMonth::new(2025, 1).unwrap(), Ordering::Less)]
+    #[case(YearMonth::new(2025, 1).unwrap(), YearMonth::new(2025, 1).unwrap(), Ordering::Equal)]
+    fn year_month_ord_ok(
+        #[case] lhs: YearMonth,
+        #[case] rhs: YearMonth,
+        #[case] expected: Ordering,
+    ) {
+        assert_eq!(
+            lhs.cmp(&rhs),
+            expected,
+            "lhs:{lhs}, rhs:{rhs}, expected:{expected:?}"
+        );
     }
 }
