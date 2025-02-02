@@ -6,7 +6,7 @@
 
 use std::cmp::Ordering;
 
-use time::{Date, Month};
+use time::{macros::date, Date, Month};
 
 /// 年月
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -32,6 +32,8 @@ pub enum YearMonthError {
     InvalidMonthFormat(String),
     #[error("The year is out of range: {0}")]
     OutOfYearRange(i32),
+    #[error("The YearMonth specified when constructing an iterator must be greater or equal")]
+    DateIteratorError,
 }
 
 /// 年月操作結果
@@ -124,6 +126,8 @@ impl YearMonth {
         Date::from_calendar_date(self.year, Month::try_from(self.month).unwrap(), days).unwrap()
     }
 
+    /// TODO: implement the iter method
+
     /// 年月の日付を走査するイテレータを返します。
     ///
     /// # 戻り値
@@ -131,6 +135,27 @@ impl YearMonth {
     /// 年月の日付を走査するイテレータ
     pub fn dates(&self) -> DateIterator {
         DateIterator::new(self.first(), self.last())
+    }
+
+    /// 年月の最初の日付から、引数の年月の最後の日付までを走査するイテレータを返します。
+    ///
+    /// # 引数
+    ///
+    /// * `to` - 走査する最後の日付を取得する年月、Noneの場合はイテレーターは`9999-12-31`まで生成
+    ///
+    /// # 戻り値
+    ///
+    /// 年月の最初の日付から、日付を走査するイテレーター
+    pub fn dates_to_year_month(&self, to: Option<YearMonth>) -> YearMonthResult<DateIterator> {
+        // 引数toの年月は、この年月以降の年月でなければならない
+        if to.is_some() && to.unwrap() < *self {
+            return Err(YearMonthError::DateIteratorError);
+        }
+        let last = match to {
+            Some(to) => to.last(),
+            None => date!(9999 - 12 - 31),
+        };
+        Ok(DateIterator::new(self.first(), last))
     }
 }
 
@@ -387,5 +412,64 @@ mod tests {
         for (date, expected) in dates.iter().zip(expected_dates) {
             assert_eq!(*date, expected);
         }
+    }
+
+    #[test]
+    fn dates_to_year_month_ok_when_specified_to() {
+        let from = YearMonth::new(2023, 12).unwrap();
+        let to = YearMonth::new(2024, 2).unwrap();
+        let dates = from
+            .dates_to_year_month(Some(to))
+            .unwrap()
+            .collect::<Vec<Date>>();
+        // 2023年12月
+        let december = dates
+            .iter()
+            .filter(|d| d.month() == Month::December)
+            .collect::<Vec<&Date>>();
+        assert_eq!(december.len(), 31);
+        // 2023年1月
+        let january = dates
+            .iter()
+            .filter(|d| d.month() == Month::January)
+            .collect::<Vec<&Date>>();
+        assert_eq!(january.len(), 31);
+        // 2023年2月
+        let february = dates
+            .iter()
+            .filter(|d| d.month() == Month::February)
+            .collect::<Vec<&Date>>();
+        assert_eq!(february.len(), 29);
+    }
+
+    #[test]
+    fn dates_to_year_month_ok_when_not_specified_to() {
+        let from = YearMonth::new(9999, 11).unwrap();
+        let dates = from
+            .dates_to_year_month(None)
+            .unwrap()
+            .collect::<Vec<Date>>();
+        // 9999年11月
+        let november = dates
+            .iter()
+            .filter(|d| d.month() == Month::November)
+            .collect::<Vec<&Date>>();
+        assert_eq!(november.len(), 30);
+        // 9999年12月
+        let december = dates
+            .iter()
+            .filter(|d| d.month() == Month::December)
+            .collect::<Vec<&Date>>();
+        assert_eq!(december.len(), 31);
+    }
+
+    #[test]
+    fn dates_to_year_month_err() {
+        let from = YearMonth::new(2025, 2).unwrap();
+        let to = YearMonth::new(2025, 1).unwrap();
+        assert_eq!(
+            from.dates_to_year_month(Some(to)).err().unwrap(),
+            YearMonthError::DateIteratorError
+        );
     }
 }
