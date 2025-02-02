@@ -33,7 +33,7 @@ pub enum YearMonthError {
     #[error("The year is out of range: {0}")]
     OutOfYearRange(i32),
     #[error("The YearMonth specified when constructing an iterator must be greater or equal")]
-    DateIteratorError,
+    IteratorError,
 }
 
 /// 年月操作結果
@@ -107,6 +107,20 @@ impl YearMonth {
         month.length(self.year)
     }
 
+    /// 指定した年月までの年月を走査するイテレーターを返します。
+    ///
+    /// * `to` - Some(YearMonth)の場合は、その年月まで、Noneの場合はイテレーターは9999年12月までを走査するイテレーター
+    pub fn iter(&self, to: Option<YearMonth>) -> YearMonthResult<YearMonthIterator> {
+        if to.is_some() && to.unwrap() < *self {
+            return Err(YearMonthError::IteratorError);
+        }
+        let end = match to {
+            Some(ym) => ym,
+            None => YearMonth::new(9999, 12).unwrap(),
+        };
+        Ok(YearMonthIterator::new(*self, end))
+    }
+
     /// 年月の最初の日付を返します。
     ///
     /// # 戻り値
@@ -126,8 +140,6 @@ impl YearMonth {
         Date::from_calendar_date(self.year, Month::try_from(self.month).unwrap(), days).unwrap()
     }
 
-    /// TODO: implement the iter method
-
     /// 年月の日付を走査するイテレータを返します。
     ///
     /// # 戻り値
@@ -141,7 +153,7 @@ impl YearMonth {
     ///
     /// # 引数
     ///
-    /// * `to` - 走査する最後の日付を取得する年月、Noneの場合はイテレーターは`9999-12-31`まで生成
+    /// * `to` - Some(YearMonth)の場合は、その年月の最後の日付まで、Noneの場合はイテレーターは`9999-12-31`までを走査するイテレーター
     ///
     /// # 戻り値
     ///
@@ -149,13 +161,13 @@ impl YearMonth {
     pub fn dates_to_year_month(&self, to: Option<YearMonth>) -> YearMonthResult<DateIterator> {
         // 引数toの年月は、この年月以降の年月でなければならない
         if to.is_some() && to.unwrap() < *self {
-            return Err(YearMonthError::DateIteratorError);
+            return Err(YearMonthError::IteratorError);
         }
-        let last = match to {
+        let end = match to {
             Some(to) => to.last(),
             None => date!(9999 - 12 - 31),
         };
-        Ok(DateIterator::new(self.first(), last))
+        Ok(DateIterator::new(self.first(), end))
     }
 }
 
@@ -204,6 +216,41 @@ impl Ord for YearMonth {
 impl PartialOrd for YearMonth {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
+    }
+}
+
+/// 年月イテレーター
+pub struct YearMonthIterator {
+    cur: Option<YearMonth>,
+    end: YearMonth,
+}
+
+impl YearMonthIterator {
+    fn new(begin: YearMonth, end: YearMonth) -> Self {
+        Self {
+            cur: Some(begin),
+            end,
+        }
+    }
+}
+
+impl Iterator for YearMonthIterator {
+    type Item = YearMonth;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.cur?;
+        let result = self.cur;
+        self.cur = match self.cur.unwrap().next() {
+            Ok(ym) => {
+                if ym <= self.end {
+                    Some(ym)
+                } else {
+                    None
+                }
+            }
+            Err(_) => None,
+        };
+        result
     }
 }
 
@@ -360,6 +407,38 @@ mod tests {
     }
 
     #[test]
+    fn year_month_iter_ok_if_specified_greater_year_month() {
+        let from = YearMonth::new(2024, 1).unwrap();
+        let to = YearMonth::new(2025, 12).unwrap();
+        let mut expected = vec![];
+        for year in 2024..=2025 {
+            for month in 1..=12 {
+                expected.push(YearMonth::new(year, month).unwrap());
+            }
+        }
+        let actual = from.iter(Some(to)).unwrap();
+        for (a, e) in actual.zip(expected) {
+            assert_eq!(a, e);
+        }
+    }
+
+    #[test]
+    fn year_month_iter_ok_if_specified_same_year_month() {
+        let from = YearMonth::new(2025, 1).unwrap();
+        let to = YearMonth::new(2025, 1).unwrap();
+        let mut actual = from.iter(Some(to)).unwrap();
+        assert_eq!(actual.next().unwrap(), YearMonth::new(2025, 1).unwrap());
+    }
+
+    #[test]
+    fn year_month_iter_err_if_specified_less_year_month() {
+        let from = YearMonth::new(2025, 2).unwrap();
+        let to = YearMonth::new(2025, 1).unwrap();
+        let actual = from.iter(Some(to));
+        assert_eq!(actual.err().unwrap(), YearMonthError::IteratorError);
+    }
+
+    #[test]
     fn year_month_first_ok() {
         let ym = YearMonth::new(2025, 2).unwrap();
         assert_eq!(ym.first(), date!(2025 - 02 - 1));
@@ -469,7 +548,7 @@ mod tests {
         let to = YearMonth::new(2025, 1).unwrap();
         assert_eq!(
             from.dates_to_year_month(Some(to)).err().unwrap(),
-            YearMonthError::DateIteratorError
+            YearMonthError::IteratorError
         );
     }
 }
