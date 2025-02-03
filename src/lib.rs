@@ -140,6 +140,19 @@ impl YearMonth {
         Date::from_calendar_date(self.year, Month::try_from(self.month).unwrap(), days).unwrap()
     }
 
+    /// 年月が日付を含むか確認します。
+    ///
+    /// # 引数
+    ///
+    /// * `date` - 確認する日付
+    ///
+    /// # 戻り値
+    ///
+    /// 年月が日付を含む場合は`true`、含まない場合は`false`
+    pub fn contains(&self, date: Date) -> bool {
+        self.year == date.year() && self.month == date.month() as u8
+    }
+
     /// 年月の日付を走査するイテレータを返します。
     ///
     /// # 戻り値
@@ -451,6 +464,15 @@ mod tests {
     #[case(YearMonth::new(2024, 2).unwrap(), date!(2024 - 02 - 29))]
     fn year_month_last_ok(#[case] ym: YearMonth, #[case] expected: Date) {
         assert_eq!(ym.last(), expected);
+    }
+
+    #[rstest::rstest]
+    #[case(YearMonth::new(2025, 2).unwrap(), date!(2025 - 02 - 01), true)]
+    #[case(YearMonth::new(2025, 2).unwrap(), date!(2025 - 02 - 28), true)]
+    #[case(YearMonth::new(2025, 2).unwrap(), date!(2025 - 01 - 31), false)]
+    #[case(YearMonth::new(2025, 2).unwrap(), date!(2025 - 03 - 01), false)]
+    fn year_month_contains_ok(#[case] ym: YearMonth, #[case] date: Date, #[case] expected: bool) {
+        assert_eq!(ym.contains(date), expected);
     }
 
     #[test]
