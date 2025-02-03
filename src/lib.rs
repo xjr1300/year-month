@@ -6,7 +6,8 @@
 
 use std::cmp::Ordering;
 
-use time::{macros::date, Date, Month};
+use time::macros::date;
+use time::{Date, Month};
 
 /// 年月
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -51,6 +52,17 @@ impl YearMonth {
     ///
     /// * `year` - 年
     /// * `month` - 月
+    ///
+    /// ```
+    /// use year_month::{YearMonth, YearMonthError};
+    /// let ym = YearMonth::new(2025, 2).unwrap();
+    /// assert_eq!(ym.year, 2025);
+    /// assert_eq!(ym.month, 2);
+    /// let ym = YearMonth::new(0, 1);
+    /// assert_eq!(ym.err().unwrap(), YearMonthError::InvalidYear(0));
+    /// let ym = YearMonth::new(1, 13);
+    /// assert_eq!(ym.err().unwrap(), YearMonthError::InvalidMonth(13));
+    /// ```
     pub fn new(year: i32, month: u8) -> YearMonthResult<Self> {
         if !(MIN_YEAR..=MAX_YEAR).contains(&year) {
             return Err(YearMonthError::InvalidYear(year));
@@ -66,6 +78,13 @@ impl YearMonth {
     /// # 戻り値
     ///
     /// 次の年月
+    ///
+    /// ```
+    /// use year_month::{YearMonth, YearMonthError};
+    /// assert_eq!(YearMonth::new(2025, 2).unwrap().next().unwrap(), YearMonth::new(2025, 3).unwrap());
+    /// assert_eq!(YearMonth::new(2025, 12).unwrap().next().unwrap(), YearMonth::new(2026, 1).unwrap());
+    /// assert_eq!(YearMonth::new(9999, 12).unwrap().next().err().unwrap(), YearMonthError::OutOfYearRange(10000));
+    /// ```
     pub fn next(&self) -> YearMonthResult<Self> {
         let mut year = self.year;
         let mut month = self.month + 1;
@@ -84,6 +103,13 @@ impl YearMonth {
     /// # 戻り値
     ///
     /// 前の年月
+    ///
+    /// ```
+    /// use year_month::{YearMonth, YearMonthError};
+    /// assert_eq!(YearMonth::new(2025, 2).unwrap().prev().unwrap(), YearMonth::new(2025, 1).unwrap());
+    /// assert_eq!(YearMonth::new(2025, 1).unwrap().prev().unwrap(), YearMonth::new(2024, 12).unwrap());
+    /// assert_eq!(YearMonth::new(1, 1).unwrap().prev().err().unwrap(), YearMonthError::OutOfYearRange(0));
+    /// ```
     pub fn prev(&self) -> YearMonthResult<Self> {
         let mut year = self.year;
         let mut month = self.month - 1;
@@ -102,6 +128,12 @@ impl YearMonth {
     /// # 戻り値
     ///
     /// 日付の数
+    ///
+    /// ```
+    /// use year_month::YearMonth;
+    /// assert_eq!(YearMonth::new(2025, 2).unwrap().number_of_days(), 28);
+    /// assert_eq!(YearMonth::new(2024, 2).unwrap().number_of_days(), 29);
+    /// ```
     pub fn number_of_days(&self) -> u8 {
         let month = Month::try_from(self.month).unwrap();
         month.length(self.year)
@@ -109,7 +141,34 @@ impl YearMonth {
 
     /// 指定した年月までの年月を走査するイテレーターを返します。
     ///
+    /// # 戻り値
+    ///
     /// * `to` - Some(YearMonth)の場合は、その年月まで、Noneの場合はイテレーターは9999年12月までを走査するイテレーター
+    ///
+    /// ```
+    /// use year_month::YearMonth;
+    /// let from = YearMonth::new(2025, 12).unwrap();
+    /// let to = YearMonth::new(2026, 2).unwrap();
+    /// let expected = [
+    ///     YearMonth::new(2025, 12).unwrap(),
+    ///     YearMonth::new(2026, 1).unwrap(),
+    ///     YearMonth::new(2026, 2).unwrap(),
+    /// ];
+    /// let iter = from.iter(Some(to)).unwrap();
+    /// for (actual, expected) in iter.zip(expected) {
+    ///     assert_eq!(actual, expected);
+    /// }
+    ///
+    /// let from = YearMonth::new(9999, 11).unwrap();
+    /// let expected = [
+    ///     YearMonth::new(9999, 11).unwrap(),
+    ///     YearMonth::new(9999, 12).unwrap(),
+    /// ];
+    /// let iter = from.iter(None).unwrap();
+    /// for (actual, expected) in iter.zip(expected) {
+    ///     assert_eq!(actual, expected);
+    /// }
+    /// ```
     pub fn iter(&self, to: Option<YearMonth>) -> YearMonthResult<YearMonthIterator> {
         if to.is_some() && to.unwrap() < *self {
             return Err(YearMonthError::IteratorError);
@@ -126,6 +185,13 @@ impl YearMonth {
     /// # 戻り値
     ///
     /// 年月の最初の日付
+    ///
+    /// ```
+    /// use time::macros::date;
+    /// use year_month::YearMonth;
+    /// let ym = YearMonth::new(2025, 2).unwrap();
+    /// assert_eq!(ym.first(), date!(2025 - 02 - 01));
+    /// ```
     pub fn first(&self) -> Date {
         Date::from_calendar_date(self.year, Month::try_from(self.month).unwrap(), 1).unwrap()
     }
@@ -135,6 +201,15 @@ impl YearMonth {
     /// # 戻り値
     ///
     /// 年月の最後の日付
+    ///
+    /// ```
+    /// use time::macros::date;
+    /// use year_month::YearMonth;
+    /// let ym = YearMonth::new(2025, 2).unwrap();
+    /// assert_eq!(ym.last(), date!(2025 - 02 - 28));
+    /// let ym = YearMonth::new(2024, 2).unwrap();
+    /// assert_eq!(ym.last(), date!(2024 - 02 - 29));
+    /// ```
     pub fn last(&self) -> Date {
         let days = self.number_of_days();
         Date::from_calendar_date(self.year, Month::try_from(self.month).unwrap(), days).unwrap()
@@ -149,6 +224,14 @@ impl YearMonth {
     /// # 戻り値
     ///
     /// 年月が日付を含む場合は`true`、含まない場合は`false`
+    /// ```
+    /// use time::macros::date;
+    /// use year_month::YearMonth;
+    /// let ym = YearMonth::new(2025, 2).unwrap();
+    /// assert!(ym.contains(date!(2025 - 02 - 01)));
+    /// assert!(ym.contains(date!(2025 - 02 - 28)));
+    /// assert!(!ym.contains(date!(2025 - 01 - 31)));
+    /// assert!(!ym.contains(date!(2025 - 03 - 01)));
     pub fn contains(&self, date: Date) -> bool {
         self.year == date.year() && self.month == date.month() as u8
     }
@@ -158,6 +241,15 @@ impl YearMonth {
     /// # 戻り値
     ///
     /// 年月の日付を走査するイテレータ
+    /// ```
+    /// use time::macros::date;
+    /// use year_month::YearMonth;
+    /// let ym = YearMonth::new(2025, 2).unwrap();
+    /// let mut expected = date!(2025 - 02 - 01);
+    /// for actual in ym.dates() {
+    ///     assert_eq!(actual, expected);
+    ///     expected = expected.next_day().unwrap();
+    /// }
     pub fn dates(&self) -> DateIterator {
         DateIterator::new(self.first(), self.last())
     }
@@ -171,6 +263,24 @@ impl YearMonth {
     /// # 戻り値
     ///
     /// 年月の最初の日付から、日付を走査するイテレーター
+    ///
+    /// ```
+    /// use time::macros::date;
+    /// use year_month::YearMonth;
+    /// let from = YearMonth::new(2025, 2).unwrap();
+    /// let to = YearMonth::new(2025, 3).unwrap();
+    /// let mut expected = date!(2025 - 02 - 01);
+    /// for actual in from.dates_to_year_month(Some(to)).unwrap() {
+    ///     assert_eq!(actual, expected);
+    ///     expected = expected.next_day().unwrap();
+    /// }
+    ///
+    /// let from = YearMonth::new(9999, 11).unwrap();
+    /// let mut expected = Some(date!(9999 - 11 - 01));
+    /// for actual in from.dates_to_year_month(None).unwrap() {
+    ///     assert_eq!(actual, expected.unwrap());
+    ///     expected = expected.unwrap().next_day()
+    /// }
     pub fn dates_to_year_month(&self, to: Option<YearMonth>) -> YearMonthResult<DateIterator> {
         // 引数toの年月は、この年月以降の年月でなければならない
         if to.is_some() && to.unwrap() < *self {
@@ -196,6 +306,15 @@ impl std::str::FromStr for YearMonth {
     /// # 戻り値
     ///
     /// 年月
+    ///
+    /// ```
+    /// use std::str::FromStr as _;
+    /// use year_month::YearMonth;
+    /// let ym = YearMonth::from_str("2025-02").unwrap();
+    /// assert_eq!(ym, YearMonth::new(2025, 2).unwrap());
+    /// let ym = YearMonth::from_str("1-02").unwrap();
+    /// assert_eq!(ym, YearMonth::new(1, 2).unwrap());
+    /// ```
     fn from_str(s: &str) -> YearMonthResult<Self> {
         let (year, month) = s
             .split_once('-')
@@ -211,6 +330,13 @@ impl std::str::FromStr for YearMonth {
 }
 
 impl std::fmt::Display for YearMonth {
+    /// ```
+    /// use year_month::YearMonth;
+    /// let ym = YearMonth::new(2025, 2).unwrap();
+    /// assert_eq!(ym.to_string(), "2025-02");
+    /// let ym = YearMonth::new(1, 2).unwrap();
+    /// assert_eq!(ym.to_string(), "1-02");
+    /// ```
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}-{:02}", self.year, self.month)
     }

@@ -5,8 +5,7 @@ edition = "2021"
 
 [dependencies]
 thiserror = "2.0.11"
-time = "0.3.37"
+time = { version = "0.3.37", features = ["macros"] }
 
 [dev-dependencies]
 rstest = "0.24.0"
-time = { version = "0.3.37", features = ["macros"] }
